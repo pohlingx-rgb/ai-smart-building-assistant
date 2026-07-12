@@ -1,3 +1,3 @@
-from Auth.login import login
+from auth.login import login
 
 __all__ = ["login"]

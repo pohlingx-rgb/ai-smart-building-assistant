@@ -1,5 +1,5 @@
 import streamlit as st
-from Auth.login import login
+from auth.login import login
 
 st.set_page_config(
     page_title="AI Smart Building Assistant",
