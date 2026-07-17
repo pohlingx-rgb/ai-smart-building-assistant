@@ -1,4 +1,6 @@
 import streamlit as st
+from datetime import datetime
+import pandas as pd
 
 from modules.document_loader import (
     read_pdf,
@@ -13,6 +15,9 @@ from modules.rag_pipeline import generate_answer, generate_sor_answer
 from vectorstore.faiss_manager import create_vector_store
 
 st.title("📘 Operations Knowledge Assistant")
+
+if "uploaded_documents" not in st.session_state:
+    st.session_state["uploaded_documents"] = []
 
 uploaded_file = None
 
@@ -44,6 +49,26 @@ if uploaded_file:
 
     st.success("Document Uploaded Successfully")
 
+    document_info = {
+    "name": file_name,
+    "upload_time": datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    ),
+    "size_kb": round(
+        uploaded_file.size / 1024,
+        2
+    )
+}
+    existing_docs = [
+        doc["name"]
+        for doc in st.session_state.get("uploaded_documents", [])
+    ]
+
+    if file_name not in existing_docs:
+        st.session_state["uploaded_documents"].append(
+            document_info
+        )
+
     st.subheader("Document Name")
     st.write(file_name)
 
@@ -64,48 +89,47 @@ if uploaded_file:
 
     st.success("✅ FAISS Vector Store Created")
 
-if "vector_store" not in st.session_state:
+    st.markdown("---")
 
-    st.warning(
-        "No document database available. "
-        "Please ask an Admin to upload documents."
-    )
+st.subheader("📂 Uploaded Document Library")
 
-    st.stop()
-# If there's no vector store, stop execution after warning.
-
-# Ask question about the uploaded document
-question = st.text_input(
-    "Ask a question about the uploaded document"
+st.metric(
+    "Total Documents",
+    len(st.session_state["uploaded_documents"])
 )
 
-from datetime import datetime
+search_term = st.text_input(
+    "🔍 Search uploaded documents"
+)
 
-if question:
-    results = st.session_state["vector_store"].similarity_search(question, k=3)
-    answer = generate_answer(question, results)
+df = pd.DataFrame(
+    st.session_state["uploaded_documents"]
+)
 
-    if "question_history" not in st.session_state:
-        st.session_state["question_history"] = []
+if not df.empty:
 
-    st.session_state.question_history.append(
-        {
-            "module": "Operations Assistant",
-            "question": question,
-            "answer": answer,
-            "timestamp": datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
+    if search_term:
+
+        df = df[
+            df["name"].str.contains(
+                search_term,
+                case=False,
+                na=False
             )
-        }
+        ]
+
+    df.index = range(
+        1,
+        len(df) + 1
     )
 
-    st.subheader("AI Answer")
-    st.markdown(answer)
+    st.dataframe(
+        df,
+        use_container_width=True
+    )
 
-    st.subheader("Source References")
-    for idx, doc in enumerate(results):
-        st.write(f"Source {idx + 1}")
-        st.code(doc.page_content)
+else:
 
-# current timestamp
-timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    st.info(
+        "No documents uploaded yet."
+    )
